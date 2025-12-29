@@ -1,0 +1,2299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiquidityGuard - Pool Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(99, 102, 241, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .status-badge {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .7; }
+        }
+
+        .nav-item {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .nav-item:hover {
+            background: rgba(99, 102, 241, 0.2);
+        }
+
+        .nav-item.active {
+            background: rgba(99, 102, 241, 0.3);
+            border-left: 3px solid #6366f1;
+        }
+
+        input, select, textarea {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #6366f1;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .chart-placeholder {
+            background: linear-gradient(45deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border: 2px dashed rgba(99, 102, 241, 0.3);
+        }
+    </style>
+</head>
+<body class="text-white">
+    <!-- Header -->
+    <header class="border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-2 rounded-lg">
+                        <i class="fas fa-water text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">LiquidityGuard</h1>
+                        <p class="text-xs text-gray-400">Pool Range Monitor</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Indicador de atualização -->
+                    <button onclick="manualRefresh()" class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition hidden sm:flex items-center space-x-2" id="refreshIndicator" title="Atualizar dados">
+                        <i class="fas fa-sync-alt text-gray-400" id="refreshIcon"></i>
+                        <span class="text-xs text-gray-400 hidden md:inline" id="lastUpdate">Atualizando...</span>
+                    </button>
+                    
+                    <button class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition hidden sm:block">
+                        <i class="fas fa-bell mr-2"></i>
+                        <span class="hidden md:inline">Notificações</span>
+                        <span class="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">2</span>
+                    </button>
+                    
+                    <!-- User Menu -->
+                    <div class="relative" id="userMenuContainer">
+                        <button onclick="toggleUserMenu()" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-white/5 transition">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="hidden sm:block text-left">
+                                <p class="text-sm font-semibold" id="userName">Usuário</p>
+                                <p class="text-xs text-gray-400" id="userEmail">usuario@email.com</p>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs hidden sm:block"></i>
+                        </button>
+
+                        <!-- Dropdown Menu -->
+                        <div id="userMenu" class="hidden absolute right-0 mt-2 w-64 card rounded-xl overflow-hidden z-50">
+                            <div class="p-4 border-b border-white/10">
+                                <p class="font-semibold" id="userNameDropdown">Usuário</p>
+                                <p class="text-sm text-gray-400" id="userEmailDropdown">usuario@email.com</p>
+                            </div>
+                            <div class="py-2">
+                                <a href="#" class="flex items-center space-x-3 px-4 py-3 hover:bg-white/5 transition">
+                                    <i class="fas fa-user-circle text-indigo-400"></i>
+                                    <span>Meu Perfil</span>
+                                </a>
+                                <a href="#" onclick="showTab('config')" class="flex items-center space-x-3 px-4 py-3 hover:bg-white/5 transition">
+                                    <i class="fas fa-cog text-gray-400"></i>
+                                    <span>Configurações</span>
+                                </a>
+                                <a href="#" class="flex items-center space-x-3 px-4 py-3 hover:bg-white/5 transition">
+                                    <i class="fas fa-crown text-yellow-400"></i>
+                                    <span>Upgrade para Pro</span>
+                                </a>
+                                <a href="#" class="flex items-center space-x-3 px-4 py-3 hover:bg-white/5 transition">
+                                    <i class="fas fa-question-circle text-gray-400"></i>
+                                    <span>Ajuda & Suporte</span>
+                                </a>
+                            </div>
+                            <div class="border-t border-white/10">
+                                <button onclick="handleLogout()" class="w-full flex items-center space-x-3 px-4 py-3 hover:bg-red-500/10 transition text-red-400">
+                                    <i class="fas fa-sign-out-alt"></i>
+                                    <span>Sair</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex">
+        <!-- Sidebar -->
+        <aside class="w-64 min-h-screen bg-black/20 backdrop-blur-md border-r border-white/10 p-6 hidden lg:block">
+            <nav class="space-y-2">
+                <div class="nav-item active p-4 rounded-lg" onclick="showTab('dashboard')">
+                    <i class="fas fa-home mr-3"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="nav-item p-4 rounded-lg" onclick="showTab('add-pool')">
+                    <i class="fas fa-plus-circle mr-3"></i>
+                    <span>Adicionar Pool</span>
+                </div>
+                <div class="nav-item p-4 rounded-lg" onclick="showTab('monitoring')">
+                    <i class="fas fa-chart-line mr-3"></i>
+                    <span>Monitoramento</span>
+                </div>
+                <div class="nav-item p-4 rounded-lg" onclick="showTab('analytics')">
+                    <i class="fas fa-chart-bar mr-3"></i>
+                    <span>Análises</span>
+                </div>
+                <div class="nav-item p-4 rounded-lg" onclick="showTab('config')">
+                    <i class="fas fa-cog mr-3"></i>
+                    <span>Configurações</span>
+                </div>
+            </nav>
+
+            <div class="mt-8 p-4 card rounded-lg">
+                <p class="text-sm text-gray-400 mb-2">Status do Sistema</p>
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 bg-green-500 rounded-full status-badge"></div>
+                    <span class="text-sm">Operacional</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Última verificação: Agora</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6">
+            <!-- Dashboard Tab -->
+            <div id="dashboard-tab" class="tab-content">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold mb-2">Dashboard</h2>
+                    <p class="text-gray-400">Visão geral das suas pools</p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="card rounded-xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <i class="fas fa-layer-group text-3xl text-indigo-400"></i>
+                            <span class="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">+12%</span>
+                        </div>
+                        <h3 class="text-2xl font-bold">8</h3>
+                        <p class="text-sm text-gray-400">Pools Ativas</p>
+                    </div>
+
+                    <div class="card rounded-xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <i class="fas fa-bullseye text-3xl text-green-400"></i>
+                            <span class="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">100%</span>
+                        </div>
+                        <h3 class="text-2xl font-bold">6</h3>
+                        <p class="text-sm text-gray-400">No Range</p>
+                    </div>
+
+                    <div class="card rounded-xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <i class="fas fa-exclamation-triangle text-3xl text-yellow-400"></i>
+                            <span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">Atenção</span>
+                        </div>
+                        <h3 class="text-2xl font-bold">2</h3>
+                        <p class="text-sm text-gray-400">Fora do Range</p>
+                    </div>
+
+                    <div class="card rounded-xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <i class="fas fa-dollar-sign text-3xl text-purple-400"></i>
+                            <span class="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full">24h</span>
+                        </div>
+                        <h3 class="text-2xl font-bold">$1,247</h3>
+                        <p class="text-sm text-gray-400">Fees Gerados</p>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="mb-8">
+                    <h3 class="text-xl font-semibold mb-4">Ações Rápidas</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button onclick="showTab('add-pool')" class="card rounded-lg p-6 hover:bg-white/10 transition text-left">
+                            <i class="fas fa-plus-circle text-3xl text-indigo-400 mb-3"></i>
+                            <h4 class="font-semibold mb-1">Adicionar Pool</h4>
+                            <p class="text-sm text-gray-400">Configure uma nova pool para monitorar</p>
+                        </button>
+                        
+                        <button class="card rounded-lg p-6 hover:bg-white/10 transition text-left" id="alertsCard">
+                            <i class="fas fa-bell text-3xl text-yellow-400 mb-3"></i>
+                            <h4 class="font-semibold mb-1">Alertas Pendentes</h4>
+                            <p class="text-sm text-gray-400" id="alertsCount">Carregando...</p>
+                        </button>
+                        
+                        <button onclick="showTab('analytics')" class="card rounded-lg p-6 hover:bg-white/10 transition text-left">
+                            <i class="fas fa-chart-pie text-3xl text-green-400 mb-3"></i>
+                            <h4 class="font-semibold mb-1">Ver Relatórios</h4>
+                            <p class="text-sm text-gray-400">Análise detalhada de performance</p>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Pools Table -->
+                <div class="card rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4">Pools Recentes</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-white/10">
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">Pool</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">Status</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">TVL</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">APR</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">Fees 24h</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-white/5 hover:bg-white/5">
+                                    <td class="py-4 px-4">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="flex -space-x-2">
+                                                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center border-2 border-gray-800">ETH</div>
+                                                <div class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center border-2 border-gray-800">USDC</div>
+                                            </div>
+                                            <div>
+                                                <p class="font-semibold">ETH/USDC</p>
+                                                <p class="text-xs text-gray-400">0.3% • Uniswap V3</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-4 px-4">
+                                        <span class="px-3 py-1 rounded-full text-xs bg-green-500/20 text-green-400">
+                                            <i class="fas fa-check-circle mr-1"></i>No Range
+                                        </span>
+                                    </td>
+                                    <td class="py-4 px-4">$45,230</td>
+                                    <td class="py-4 px-4 text-green-400">23.4%</td>
+                                    <td class="py-4 px-4">$89.45</td>
+                                    <td class="py-4 px-4">
+                                        <button class="text-indigo-400 hover:text-indigo-300 mr-3">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-gray-300">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/5 hover:bg-white/5">
+                                    <td class="py-4 px-4">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="flex -space-x-2">
+                                                <div class="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center border-2 border-gray-800">BTC</div>
+                                                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center border-2 border-gray-800">ETH</div>
+                                            </div>
+                                            <div>
+                                                <p class="font-semibold">WBTC/ETH</p>
+                                                <p class="text-xs text-gray-400">0.05% • Uniswap V3</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-4 px-4">
+                                        <span class="px-3 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-400">
+                                            <i class="fas fa-exclamation-triangle mr-1"></i>Fora do Range
+                                        </span>
+                                    </td>
+                                    <td class="py-4 px-4">$89,450</td>
+                                    <td class="py-4 px-4 text-green-400">18.2%</td>
+                                    <td class="py-4 px-4">$142.30</td>
+                                    <td class="py-4 px-4">
+                                        <button class="text-indigo-400 hover:text-indigo-300 mr-3">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-gray-300">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Pool Tab -->
+            <div id="add-pool-tab" class="tab-content hidden">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold mb-2">Adicionar Pool</h2>
+                    <p class="text-gray-400">Configure uma nova liquidity pool para monitoramento</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Form -->
+                    <div class="lg:col-span-2">
+                        <div class="card rounded-xl p-6">
+                            <form id="addPoolForm">
+                                <!-- Pool ID -->
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium mb-2">
+                                        <i class="fas fa-hashtag mr-2 text-indigo-400"></i>Pool ID / Address
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
+                                        class="w-full px-4 py-3 rounded-lg text-white"
+                                    >
+                                    <p class="text-xs text-gray-500 mt-2">Cole o endereço do contrato da pool ou o ID da pool</p>
+                                </div>
+
+                                <!-- Protocol Selection -->
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium mb-2">
+                                        <i class="fas fa-network-wired mr-2 text-indigo-400"></i>Protocolo
+                                    </label>
+                                    <select class="w-full px-4 py-3 rounded-lg text-white">
+                                        <option>Uniswap V3</option>
+                                        <option>PancakeSwap V3</option>
+                                        <option>SushiSwap</option>
+                                        <option>Curve</option>
+                                        <option>Balancer</option>
+                                    </select>
+                                </div>
+
+                                <!-- Chain Selection -->
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium mb-2">
+                                        <i class="fas fa-link mr-2 text-indigo-400"></i>Blockchain
+                                    </label>
+                                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                        <button type="button" onclick="selectChain('ethereum', this)" class="chain-btn p-3 rounded-lg border border-white/10 hover:border-indigo-500 hover:bg-indigo-500/10 transition">
+                                            <i class="fab fa-ethereum text-2xl mb-2"></i>
+                                            <p class="text-xs">Ethereum</p>
+                                        </button>
+                                        <button type="button" onclick="selectChain('bsc', this)" class="chain-btn p-3 rounded-lg border border-white/10 hover:border-indigo-500 hover:bg-indigo-500/10 transition">
+                                            <i class="fas fa-coins text-2xl mb-2 text-yellow-400"></i>
+                                            <p class="text-xs">BSC</p>
+                                        </button>
+                                        <button type="button" onclick="selectChain('polygon', this)" class="chain-btn p-3 rounded-lg border border-white/10 hover:border-indigo-500 hover:bg-indigo-500/10 transition">
+                                            <i class="fas fa-circle text-2xl mb-2 text-purple-400"></i>
+                                            <p class="text-xs">Polygon</p>
+                                        </button>
+                                        <button type="button" onclick="selectChain('arbitrum', this)" class="chain-btn p-3 rounded-lg border border-white/10 hover:border-indigo-500 hover:bg-indigo-500/10 transition">
+                                            <i class="fas fa-layer-group text-2xl mb-2 text-blue-400"></i>
+                                            <p class="text-xs">Arbitrum</p>
+                                        </button>
+                                        <button type="button" onclick="selectChain('base', this)" class="chain-btn p-3 rounded-lg border-2 border-indigo-500 bg-indigo-500/20 hover:bg-indigo-500/30 transition" data-chain="base">
+                                            <i class="fas fa-cube text-2xl mb-2 text-cyan-400"></i>
+                                            <p class="text-xs">Base</p>
+                                        </button>
+                                    </div>
+                                    <input type="hidden" id="selected-chain" value="base">
+                                </div>
+
+                                <!-- Alert Settings -->
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium mb-3">
+                                        <i class="fas fa-bell mr-2 text-indigo-400"></i>Configurações de Alerta
+                                    </label>
+                                    <div class="space-y-3">
+                                        <label class="flex items-center space-x-3 p-3 rounded-lg hover:bg-white/5 cursor-pointer">
+                                            <input type="checkbox" checked class="w-5 h-5 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500">
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium">Alerta de Range</p>
+                                                <p class="text-xs text-gray-400">Notificar quando sair do range de preço</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center space-x-3 p-3 rounded-lg hover:bg-white/5 cursor-pointer">
+                                            <input type="checkbox" checked class="w-5 h-5 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500">
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium">Alerta de Fees</p>
+                                                <p class="text-xs text-gray-400">Notificar quando atingir meta de fees acumulados</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center space-x-3 p-3 rounded-lg hover:bg-white/5 cursor-pointer">
+                                            <input type="checkbox" class="w-5 h-5 rounded border-gray-600 text-indigo-600 focus:ring-indigo-500">
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium">Alerta de IL (Impermanent Loss)</p>
+                                                <p class="text-xs text-gray-400">Notificar quando IL ultrapassar threshold</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Telegram -->
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium mb-2">
+                                        <i class="fab fa-telegram mr-2 text-indigo-400"></i>Chat ID do Telegram (Opcional)
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="123456789"
+                                        class="w-full px-4 py-3 rounded-lg text-white"
+                                    >
+                                    <p class="text-xs text-gray-500 mt-2">
+                                        <a href="#" class="text-indigo-400 hover:text-indigo-300">Como obter meu Chat ID?</a>
+                                    </p>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <button type="submit" class="w-full btn-primary py-4 rounded-lg font-semibold">
+                                    <i class="fas fa-plus-circle mr-2"></i>
+                                    Adicionar Pool ao Monitoramento
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Info Panel -->
+                    <div class="space-y-6">
+                        <div class="card rounded-xl p-6">
+                            <h4 class="font-semibold mb-4 flex items-center">
+                                <i class="fas fa-info-circle text-indigo-400 mr-2"></i>
+                                Como Funciona?
+                            </h4>
+                            <ol class="space-y-3 text-sm text-gray-300">
+                                <li class="flex">
+                                    <span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center mr-3 text-xs">1</span>
+                                    <span>Cole o ID ou endereço da sua pool</span>
+                                </li>
+                                <li class="flex">
+                                    <span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center mr-3 text-xs">2</span>
+                                    <span>Selecione o protocolo e blockchain</span>
+                                </li>
+                                <li class="flex">
+                                    <span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center mr-3 text-xs">3</span>
+                                    <span>Configure os alertas desejados</span>
+                                </li>
+                                <li class="flex">
+                                    <span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center mr-3 text-xs">4</span>
+                                    <span>Adicione seu Telegram para notificações</span>
+                                </li>
+                            </ol>
+                        </div>
+
+                        <div class="card rounded-xl p-6">
+                            <h4 class="font-semibold mb-3 flex items-center">
+                                <i class="fas fa-shield-alt text-green-400 mr-2"></i>
+                                Protocolos Suportados
+                            </h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-300">Uniswap V3</span>
+                                    <i class="fas fa-check text-green-400"></i>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-300">PancakeSwap V3</span>
+                                    <i class="fas fa-check text-green-400"></i>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-300">SushiSwap</span>
+                                    <i class="fas fa-check text-green-400"></i>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-300">Curve</span>
+                                    <i class="fas fa-clock text-yellow-400"></i>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-300">Balancer</span>
+                                    <i class="fas fa-clock text-yellow-400"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card rounded-xl p-6 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/30">
+                            <h4 class="font-semibold mb-2">💡 Dica Pro</h4>
+                            <p class="text-sm text-gray-300">
+                                Configure múltiplos alertas para a mesma pool e seja notificado em diferentes situações de mercado.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monitoring Tab -->
+            <div id="monitoring-tab" class="tab-content hidden">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold mb-2">Monitoramento em Tempo Real</h2>
+                    <p class="text-gray-400">Acompanhe suas pools e receba alertas instantâneos</p>
+                </div>
+
+                <!-- Filters -->
+                <div class="card rounded-xl p-4 mb-6 flex flex-wrap items-center gap-4">
+                    <select class="px-4 py-2 rounded-lg text-sm">
+                        <option>Todas as Pools</option>
+                        <option>No Range</option>
+                        <option>Fora do Range</option>
+                        <option>Alertas Ativos</option>
+                    </select>
+                    <select class="px-4 py-2 rounded-lg text-sm">
+                        <option>Todos os Protocolos</option>
+                        <option>Uniswap V3</option>
+                        <option>PancakeSwap</option>
+                        <option>SushiSwap</option>
+                    </select>
+                    <select class="px-4 py-2 rounded-lg text-sm">
+                        <option>Todas as Chains</option>
+                        <option>Ethereum</option>
+                        <option>BSC</option>
+                        <option>Polygon</option>
+                        <option>Arbitrum</option>
+                        <option>Base</option>
+                    </select>
+                    <div class="flex-1"></div>
+                    <button class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm">
+                        <i class="fas fa-sync-alt mr-2"></i>Atualizar
+                    </button>
+                </div>
+
+                <!-- Pool Monitoring Cards -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Pool Card 1 - In Range -->
+                    <div class="card rounded-xl p-6 border-l-4 border-green-500">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="flex -space-x-2">
+                                    <div class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center border-2 border-gray-800 font-bold">ETH</div>
+                                    <div class="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center border-2 border-gray-800 font-bold text-xs">USDC</div>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold">ETH/USDC</h3>
+                                    <p class="text-sm text-gray-400">Uniswap V3 • 0.3%</p>
+                                </div>
+                            </div>
+                            <span class="px-3 py-1 rounded-full text-xs bg-green-500/20 text-green-400 status-badge">
+                                <i class="fas fa-check-circle mr-1"></i>No Range
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <p class="text-xs text-gray-400 mb-1">Preço Atual</p>
+                                <p class="text-lg font-semibold">$3,245.67</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-1">Range</p>
+                                <p class="text-lg font-semibold text-green-400">$3,100 - $3,400</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-1">TVL</p>
+                                <p class="text-lg font-semibold">$45,230.50</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-1">APR</p>
+                                <p class="text-lg font-semibold text-green-400">23.4%</p>
+                            </div>
+                        </div>
+
+                        <!-- Price Range Visualization -->
+                        <div class="mb-4">
+                            <div class="flex justify-between text-xs text-gray-400 mb-2">
+                                <span>$3,100</span>
+                                <span class="text-white font-semibold">Atual: $3,245.67</span>
+                                <span>$3,400</span>
+                            </div>
+                            <div class="relative h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div class="absolute inset-0 bg-gradient-to-r from-red-500 via-green-500 to-red-500"></div>
+                                <div class="absolute top-0 h-full w-1 bg-white" style="left: 48.5%"></div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-white/5 rounded-lg p-3">
+                                <p class="text-xs text-gray-400 mb-1">Fees 24h</p>
+                                <p class="font-semibold text-green-400">+$89.45</p>
+                            </div>
+                            <div class="bg-white/5 rounded-lg p-3">
+                                <p class="text-xs text-gray-400 mb-1">IL Atual</p>
+                                <p class="font-semibold text-yellow-400">-1.2%</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                            <button class="text-sm text-indigo-400 hover:text-indigo-300">
+                                <i class="fas fa-chart-line mr-2"></i>Ver Detalhes
+                            </button>
+                            <button class="text-sm text-gray-400 hover:text-gray-300">
+                                <i class="fas fa-cog mr-2"></i>Configurar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Pool Card 2 - Out of Range -->
+                    <div class="card rounded-xl p-6 border-l-4 border-yellow-500">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="flex -space-x-2">
+                                    <div class="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center border-2 border-gray-800 font-bold text-xs">BTC</div>
+                                    <div class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center border-2 border-gray-800 font-bold">ETH</div>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold">WBTC/ETH</h3>
+                                    <p class="text-sm text-gray-400">Uniswap V3 • 0.05%</p>
+                                </div>
+                            </div>
+                            <span class="px-3 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-400 status-badge">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>Fora do Range
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <p class="text-xs text-gray-400 mb-1">Preço Atual</p>
+                                <p class="text-lg font-semibold">15.234 ETH</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-1">Range</p>
+                                <p class="text-lg font-semibold text-yellow-400">14.5 - 15.0 ETH</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-1">TVL</p>
+                                <p class="text-lg font-semibold">$89,450.00</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-1">APR</p>
+                                <p class="text-lg font-semibold text-red-400">0.0%</p>
+                            </div>
+                        </div>
+
+                        <!-- Price Range Visualization - Out of Range -->
+                        <div class="mb-4">
+                            <div class="flex justify-between text-xs text-gray-400 mb-2">
+                                <span>14.5 ETH</span>
+                                <span class="text-yellow-400 font-semibold">Atual: 15.234 ETH</span>
+                                <span>15.0 ETH</span>
+                            </div>
+                            <div class="relative h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div class="absolute inset-0 bg-gradient-to-r from-red-500 via-green-500 to-red-500"></div>
+                                <div class="absolute top-0 h-full w-1 bg-yellow-400" style="left: 98%"></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
+                            <div class="flex items-start space-x-2">
+                                <i class="fas fa-exclamation-triangle text-yellow-400 mt-1"></i>
+                                <div>
+                                    <p class="text-sm font-semibold text-yellow-400">Ação Recomendada</p>
+                                    <p class="text-xs text-gray-300 mt-1">Sua pool está fora do range há 3h. Você não está gerando fees. Considere rebalancear.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-white/5 rounded-lg p-3">
+                                <p class="text-xs text-gray-400 mb-1">Fees Perdidos</p>
+                                <p class="font-semibold text-red-400">-$23.50</p>
+                            </div>
+                            <div class="bg-white/5 rounded-lg p-3">
+                                <p class="text-xs text-gray-400 mb-1">IL Atual</p>
+                                <p class="font-semibold text-red-400">-3.8%</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                            <button class="text-sm bg-yellow-500/20 text-yellow-400 px-4 py-2 rounded-lg hover:bg-yellow-500/30">
+                                <i class="fas fa-sync-alt mr-2"></i>Rebalancear
+                            </button>
+                            <button class="text-sm text-gray-400 hover:text-gray-300">
+                                <i class="fas fa-bell-slash mr-2"></i>Silenciar Alerta
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- More pool cards would go here -->
+                </div>
+
+                <!-- Alert History -->
+                <div class="card rounded-xl p-6 mt-6">
+                    <h3 class="text-xl font-semibold mb-4">Histórico de Alertas</h3>
+                    <div class="space-y-3">
+                        <div class="flex items-start space-x-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                            <i class="fas fa-exclamation-triangle text-yellow-400 text-xl mt-1"></i>
+                            <div class="flex-1">
+                                <p class="font-semibold">WBTC/ETH saiu do range</p>
+                                <p class="text-sm text-gray-400">A pool saiu do range de preço configurado</p>
+                                <p class="text-xs text-gray-500 mt-1">Há 3 horas</p>
+                            </div>
+                            <button class="text-sm text-indigo-400">Ver Pool</button>
+                        </div>
+
+                        <div class="flex items-start space-x-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                            <i class="fas fa-check-circle text-green-400 text-xl mt-1"></i>
+                            <div class="flex-1">
+                                <p class="font-semibold">ETH/USDC atingiu meta de fees</p>
+                                <p class="text-sm text-gray-400">Fees acumulados: $89.45 (Meta: $80.00)</p>
+                                <p class="text-xs text-gray-500 mt-1">Há 5 horas</p>
+                            </div>
+                            <button class="text-sm text-indigo-400">Ver Pool</button>
+                        </div>
+
+                        <div class="flex items-start space-x-4 p-3 rounded-lg hover:bg-white/5">
+                            <i class="fas fa-info-circle text-blue-400 text-xl mt-1"></i>
+                            <div class="flex-1">
+                                <p class="font-semibold">ETH/USDC retornou ao range</p>
+                                <p class="text-sm text-gray-400">A pool voltou a gerar fees</p>
+                                <p class="text-xs text-gray-500 mt-1">Há 1 dia</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div id="analytics-tab" class="tab-content hidden">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold mb-2">Análises e Performance</h2>
+                    <p class="text-gray-400">Análise detalhada das suas liquidity pools</p>
+                </div>
+
+
+                <!-- Performance Overview -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="card rounded-xl p-6">
+                        <h4 class="text-sm text-gray-400 mb-2">Total Fees Acumulados</h4>
+                        <p class="text-3xl font-bold mb-2" id="totalFeesAccumulated">$0.00</p>
+                        <p class="text-sm text-gray-400">
+                            Soma de todas as pools ativas
+                        </p>
+                    </div>
+
+                    <div class="card rounded-xl p-6">
+                        <h4 class="text-sm text-gray-400 mb-2">Pools Monitoradas</h4>
+                        <p class="text-3xl font-bold mb-2" id="totalPoolsCount">0</p>
+                        <p class="text-sm text-gray-400">
+                            Total de pools ativas
+                        </p>
+                    </div>
+                </div>
+
+
+                <!-- Pool Performance Table -->
+                <div class="card rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4">Pools Monitoradas</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-white/10">
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">Pool</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">Fees Acumulados</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">Preço Atual</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">Status</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-400">Última Verificação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analyticsPoolsTable">
+                                <tr>
+                                    <td colspan="5" class="py-8 px-4 text-center text-gray-400">
+                                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                        <p>Carregando dados...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Config Tab -->
+            <div id="config-tab" class="tab-content hidden">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold mb-2">Configurações</h2>
+                    <p class="text-gray-400">Personalize suas preferências e notificações</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Telegram Settings -->
+                    <div class="card rounded-xl p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center">
+                            <i class="fab fa-telegram text-indigo-400 text-2xl mr-3"></i>
+                            Telegram
+                        </h3>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">Chat ID</label>
+                            <input 
+                                type="text" 
+                                placeholder="123456789"
+                                class="w-full px-4 py-3 rounded-lg text-white"
+                            >
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">Bot Token</label>
+                            <input 
+                                type="password" 
+                                placeholder="••••••••••••••••"
+                                class="w-full px-4 py-3 rounded-lg text-white"
+                            >
+                            <p class="text-xs text-gray-500 mt-2">
+                                <a href="#" class="text-indigo-400 hover:text-indigo-300">Como criar um bot no Telegram?</a>
+                            </p>
+                        </div>
+
+                        <button class="btn-primary px-6 py-3 rounded-lg font-semibold w-full">
+                            <i class="fas fa-check mr-2"></i>Salvar Configurações
+                        </button>
+
+                        <div class="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                            <div class="flex items-start space-x-2">
+                                <i class="fas fa-check-circle text-green-400 mt-1"></i>
+                                <div>
+                                    <p class="text-sm font-semibold text-green-400">Telegram Conectado</p>
+                                    <p class="text-xs text-gray-300 mt-1">Você receberá notificações em tempo real</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notification Preferences -->
+                    <div class="card rounded-xl p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center">
+                            <i class="fas fa-bell text-indigo-400 text-2xl mr-3"></i>
+                            Preferências de Notificação
+                        </h3>
+
+                        <div class="space-y-4">
+                            <label class="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 cursor-pointer">
+                                <div>
+                                    <p class="font-medium">Alertas de Range</p>
+                                    <p class="text-sm text-gray-400">Quando pool sair do range</p>
+                                </div>
+                                <input type="checkbox" checked class="w-5 h-5 rounded">
+                            </label>
+
+                            <label class="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 cursor-pointer">
+                                <div>
+                                    <p class="font-medium">Alertas de Fees</p>
+                                    <p class="text-sm text-gray-400">Metas de fees atingidas</p>
+                                </div>
+                                <input type="checkbox" checked class="w-5 h-5 rounded">
+                            </label>
+
+                            <label class="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 cursor-pointer">
+                                <div>
+                                    <p class="font-medium">Resumo Diário</p>
+                                    <p class="text-sm text-gray-400">Relatório diário às 9h</p>
+                                </div>
+                                <input type="checkbox" class="w-5 h-5 rounded">
+                            </label>
+
+                            <label class="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 cursor-pointer">
+                                <div>
+                                    <p class="font-medium">Alertas de IL</p>
+                                    <p class="text-sm text-gray-400">Impermanent Loss alto</p>
+                                </div>
+                                <input type="checkbox" checked class="w-5 h-5 rounded">
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Alert Thresholds -->
+                    <div class="card rounded-xl p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center">
+                            <i class="fas fa-sliders-h text-indigo-400 text-2xl mr-3"></i>
+                            Limites de Alerta
+                        </h3>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    IL Máximo (%)
+                                    <span class="text-gray-400 font-normal ml-2">Alertar quando ultrapassar</span>
+                                </label>
+                                <input 
+                                    type="number" 
+                                    value="5"
+                                    class="w-full px-4 py-3 rounded-lg text-white"
+                                >
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    Intervalo de Verificação (minutos)
+                                </label>
+                                <select class="w-full px-4 py-3 rounded-lg text-white">
+                                    <option>1 minuto</option>
+                                    <option selected>5 minutos</option>
+                                    <option>15 minutos</option>
+                                    <option>30 minutos</option>
+                                    <option>1 hora</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    Meta de Fees Diários ($)
+                                </label>
+                                <input 
+                                    type="number" 
+                                    value="50"
+                                    class="w-full px-4 py-3 rounded-lg text-white"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Telegram Settings -->
+                    <div class="card rounded-xl p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center">
+                            <i class="fab fa-telegram text-indigo-400 text-2xl mr-3"></i>
+                            Notificações Telegram
+                        </h3>
+
+                        <div id="telegramStatus" class="mb-4">
+                            <div class="p-4 bg-gray-800/50 rounded-lg">
+                                <p class="text-sm text-gray-400 mb-2">Status da vinculação</p>
+                                <p class="text-lg font-semibold" id="telegramStatusText">Verificando...</p>
+                            </div>
+                        </div>
+
+                        <div id="telegramLinked" class="hidden">
+                            <div class="p-4 bg-green-500/10 border border-green-500/30 rounded-lg mb-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-semibold text-green-400">Telegram vinculado</p>
+                                        <p class="text-xs text-gray-400 mt-1" id="telegramUsername">@username</p>
+                                    </div>
+                                    <button onclick="unlinkTelegram()" class="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm transition">
+                                        Desvincular
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="telegramUnlinked">
+                            <p class="text-sm text-gray-400 mb-4">
+                                Receba alertas em tempo real no Telegram quando suas pools saírem do range ou atingirem metas de fees.
+                            </p>
+                            
+                            <button onclick="linkTelegram()" class="w-full px-4 py-3 bg-indigo-500 hover:bg-indigo-600 rounded-lg font-semibold transition flex items-center justify-center space-x-2">
+                                <i class="fab fa-telegram"></i>
+                                <span>Conectar Telegram</span>
+                            </button>
+
+                            <div id="telegramLinkInstructions" class="hidden mt-4 p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-lg">
+                                <p class="text-sm font-semibold mb-2">📱 Como vincular:</p>
+                                <ol class="text-sm text-gray-300 space-y-2 list-decimal list-inside">
+                                    <li>Clique no botão abaixo para abrir o Telegram</li>
+                                    <li>Ou envie o comando: <code class="bg-gray-800 px-2 py-1 rounded" id="telegramTokenCode">/start TG-XXXXX</code></li>
+                                    <li>O token expira em <span id="telegramTokenExpires">15 minutos</span></li>
+                                </ol>
+                                <a id="telegramDeepLink" href="#" target="_blank" class="mt-4 block w-full px-4 py-3 bg-indigo-500 hover:bg-indigo-600 rounded-lg font-semibold text-center transition">
+                                    <i class="fab fa-telegram mr-2"></i>Abrir Telegram Bot
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- API Settings -->
+                    <div class="card rounded-xl p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center">
+                            <i class="fas fa-code text-indigo-400 text-2xl mr-3"></i>
+                            Configurações de API
+                        </h3>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">RPC Endpoint (Ethereum)</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="https://eth-mainnet.g.alchemy.com/v2/..."
+                                    class="w-full px-4 py-3 rounded-lg text-white"
+                                >
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Etherscan API Key</label>
+                                <input 
+                                    type="password" 
+                                    placeholder="••••••••••••••••"
+                                    class="w-full px-4 py-3 rounded-lg text-white"
+                                >
+                            </div>
+
+                            <div class="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                                <p class="text-sm text-gray-300">
+                                    <i class="fas fa-info-circle text-blue-400 mr-2"></i>
+                                    APIs opcionais para melhorar velocidade e precisão dos dados
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Configurar Pool -->
+    <div id="configureModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="card rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold">Configurar Pool</h2>
+                <button onclick="closeConfigureModal()" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="configureModalContent">
+                <!-- Conteúdo será preenchido dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ver Detalhes -->
+    <div id="detailsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="card rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold">Detalhes da Pool</h2>
+                <button onclick="closeDetailsModal()" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="detailsModalContent">
+                <!-- Conteúdo será preenchido dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        // API_BASE_URL já definido em config.js
+        const API_BASE_URL = window.API_BASE_URL;
+        
+        // Função para obter token de autenticação
+        function getAuthToken() {
+            return localStorage.getItem('liquidityguard_token');
+        }
+
+        // Função para fazer requisições autenticadas
+        async function apiRequest(endpoint, options = {}) {
+            const token = getAuthToken();
+            if (!token) {
+                throw new Error('Não autenticado');
+            }
+
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            };
+
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                ...defaultOptions,
+                ...options,
+                headers: {
+                    ...defaultOptions.headers,
+                    ...options.headers
+                }
+            });
+
+            if (response.status === 401) {
+                // Token inválido, fazer logout
+                handleLogout();
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+
+            return response;
+        }
+
+        // Check authentication on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            checkAuthentication();
+            loadPools();
+            loadTelegramStatus();
+            
+            // Iniciar atualização automática
+            startAutoRefresh();
+        });
+        
+        // Função para carregar status do Telegram
+        async function loadTelegramStatus() {
+            try {
+                const response = await apiRequest('/telegram/status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const statusDiv = document.getElementById('telegramStatusText');
+                    const linkedDiv = document.getElementById('telegramLinked');
+                    const unlinkedDiv = document.getElementById('telegramUnlinked');
+                    const usernameSpan = document.getElementById('telegramUsername');
+                    
+                    if (data.linked) {
+                        statusDiv.textContent = '✅ Vinculado';
+                        statusDiv.className = 'text-lg font-semibold text-green-400';
+                        linkedDiv.classList.remove('hidden');
+                        unlinkedDiv.classList.add('hidden');
+                        if (data.telegram_username) {
+                            usernameSpan.textContent = '@' + data.telegram_username;
+                        }
+                    } else {
+                        statusDiv.textContent = '❌ Não vinculado';
+                        statusDiv.className = 'text-lg font-semibold text-gray-400';
+                        linkedDiv.classList.add('hidden');
+                        unlinkedDiv.classList.remove('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao carregar status do Telegram:', error);
+            }
+        }
+        
+        // Função para vincular Telegram
+        async function linkTelegram() {
+            try {
+                const response = await apiRequest('/telegram/generate-link-token', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    const instructionsDiv = document.getElementById('telegramLinkInstructions');
+                    const tokenCode = document.getElementById('telegramTokenCode');
+                    const deepLink = document.getElementById('telegramDeepLink');
+                    const expiresSpan = document.getElementById('telegramTokenExpires');
+                    
+                    tokenCode.textContent = `/start ${data.token}`;
+                    deepLink.href = data.deep_link;
+                    
+                    // Calcular tempo de expiração
+                    const expiresAt = new Date(data.expires_at);
+                    const now = new Date();
+                    const minutes = Math.ceil((expiresAt - now) / 1000 / 60);
+                    expiresSpan.textContent = `${minutes} minutos`;
+                    
+                    instructionsDiv.classList.remove('hidden');
+                    
+                    // Atualizar status após 2 segundos
+                    setTimeout(loadTelegramStatus, 2000);
+                } else {
+                    alert('Erro ao gerar token: ' + (data.error || 'Erro desconhecido'));
+                }
+            } catch (error) {
+                console.error('Erro ao vincular Telegram:', error);
+                alert('Erro ao vincular Telegram. Tente novamente.');
+            }
+        }
+        
+        // Função para desvincular Telegram
+        async function unlinkTelegram() {
+            if (!confirm('Tem certeza que deseja desvincular o Telegram? Você não receberá mais alertas.')) {
+                return;
+            }
+            
+            try {
+                const response = await apiRequest('/telegram/unlink', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Telegram desvinculado com sucesso!');
+                    loadTelegramStatus();
+                } else {
+                    alert('Erro ao desvincular: ' + (data.error || 'Erro desconhecido'));
+                }
+            } catch (error) {
+                console.error('Erro ao desvincular Telegram:', error);
+                alert('Erro ao desvincular Telegram. Tente novamente.');
+            }
+        }
+        
+        // Função para atualização manual
+        async function manualRefresh() {
+            console.log('🔄 Atualização manual solicitada...');
+            updateRefreshIndicator(true);
+            
+            try {
+                await loadPools();
+                
+                // Se estiver na aba de análises, atualizar também
+                const analyticsTab = document.getElementById('analytics-tab');
+                if (analyticsTab && !analyticsTab.classList.contains('hidden')) {
+                    await loadAnalyticsData();
+                }
+            } catch (error) {
+                console.error('Erro ao atualizar dados:', error);
+                alert('Erro ao atualizar dados. Tente novamente.');
+            } finally {
+                updateRefreshIndicator(false);
+            }
+        }
+        
+        // Função para atualizar indicador de refresh
+        function updateRefreshIndicator(isRefreshing = false) {
+            const refreshIcon = document.getElementById('refreshIcon');
+            const lastUpdate = document.getElementById('lastUpdate');
+            
+            if (isRefreshing) {
+                if (refreshIcon) {
+                    refreshIcon.classList.add('fa-spin');
+                    refreshIcon.classList.remove('text-gray-400');
+                    refreshIcon.classList.add('text-indigo-400');
+                }
+                if (lastUpdate) {
+                    lastUpdate.textContent = 'Atualizando...';
+                }
+            } else {
+                if (refreshIcon) {
+                    refreshIcon.classList.remove('fa-spin');
+                    refreshIcon.classList.remove('text-indigo-400');
+                    refreshIcon.classList.add('text-gray-400');
+                }
+                if (lastUpdate) {
+                    const now = new Date();
+                    lastUpdate.textContent = `Atualizado: ${now.toLocaleTimeString('pt-BR')}`;
+                }
+            }
+        }
+        
+        // Função para iniciar atualização automática
+        function startAutoRefresh() {
+            // Atualizar a cada 30 segundos
+            const refreshInterval = 30000; // 30 segundos
+            
+            // Atualizar indicador inicial
+            updateRefreshIndicator(false);
+            
+            setInterval(async () => {
+                console.log('🔄 Atualizando dados automaticamente...');
+                updateRefreshIndicator(true);
+                
+                try {
+                    await loadPools();
+                    
+                    // Se estiver na aba de análises, atualizar também
+                    const analyticsTab = document.getElementById('analytics-tab');
+                    if (analyticsTab && !analyticsTab.classList.contains('hidden')) {
+                        await loadAnalyticsData();
+                    }
+                } catch (error) {
+                    console.error('Erro ao atualizar dados:', error);
+                } finally {
+                    updateRefreshIndicator(false);
+                }
+            }, refreshInterval);
+            
+            console.log(`✅ Atualização automática ativada (a cada ${refreshInterval / 1000} segundos)`);
+        }
+
+        function checkAuthentication() {
+            const token = getAuthToken();
+            const isAuthenticated = localStorage.getItem('liquidityguard_authenticated');
+            const user = JSON.parse(localStorage.getItem('liquidityguard_user') || '{}');
+
+            if (!token || !isAuthenticated || !user.email) {
+                // Redirecionar para login se não autenticado
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Atualizar informações do usuário na interface
+            document.getElementById('userName').textContent = user.name || 'Usuário';
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('userNameDropdown').textContent = user.name || 'Usuário';
+            document.getElementById('userEmailDropdown').textContent = user.email;
+        }
+
+        // Carregar pools do backend
+        async function loadPools() {
+            try {
+                const response = await apiRequest('/pools');
+                const data = await response.json();
+
+                if (data.success && data.pools) {
+                    console.log('Pools carregadas:', data.pools.length, data.pools);
+                    window.currentPools = data.pools; // Armazenar no escopo global para uso nos modais
+                    updateDashboard(data.pools);
+                    updateMonitoringTab(data.pools);
+                } else {
+                    console.log('Nenhuma pool encontrada ou resposta inválida:', data);
+                    window.currentPools = [];
+                    updateMonitoringTab([]);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar pools:', error);
+                updateMonitoringTab([]);
+            }
+        }
+
+        // Atualizar dashboard com dados reais
+        function updateDashboard(pools) {
+            const activePools = pools.filter(p => p.is_active !== false);
+            const inRangePools = activePools.filter(p => p.last_in_range === true);
+            const outOfRangePools = activePools.filter(p => p.last_in_range === false);
+            
+            // Calcular total de fees
+            let totalFees = 0;
+            activePools.forEach(pool => {
+                const fees = parseFloat(pool.fees_uncollected_usd || 0);
+                if (!isNaN(fees) && fees > 0) {
+                    totalFees += fees;
+                }
+            });
+
+            // Atualizar cards de estatísticas usando seletores mais específicos
+            const dashboardTab = document.getElementById('dashboard-tab');
+            if (dashboardTab) {
+                const statsGrid = dashboardTab.querySelector('.grid.grid-cols-1.md\\:grid-cols-2.lg\\:grid-cols-4');
+                if (statsGrid) {
+                    const statsCards = statsGrid.querySelectorAll('.card.rounded-xl.p-6');
+                    
+                    // Card 1: Pools Ativas (ícone fa-layer-group)
+                    if (statsCards[0]) {
+                        const icon1 = statsCards[0].querySelector('.fa-layer-group');
+                        if (icon1) {
+                            const countEl = statsCards[0].querySelector('.text-2xl.font-bold');
+                            if (countEl) countEl.textContent = activePools.length;
+                            const badge1 = statsCards[0].querySelector('.text-xs.bg-green-500\\/20');
+                            if (badge1) badge1.remove();
+                        }
+                    }
+                    
+                    // Card 2: No Range (ícone fa-bullseye)
+                    if (statsCards[1]) {
+                        const icon2 = statsCards[1].querySelector('.fa-bullseye');
+                        if (icon2) {
+                            const countEl = statsCards[1].querySelector('.text-2xl.font-bold');
+                            if (countEl) countEl.textContent = inRangePools.length;
+                            const badge2 = statsCards[1].querySelector('.text-xs.bg-green-500\\/20');
+                            if (badge2 && activePools.length > 0) {
+                                const percentage = Math.round((inRangePools.length / activePools.length) * 100);
+                                badge2.textContent = `${percentage}%`;
+                            }
+                        }
+                    }
+                    
+                    // Card 3: Fora do Range (ícone fa-exclamation-triangle)
+                    if (statsCards[2]) {
+                        const icon3 = statsCards[2].querySelector('.fa-exclamation-triangle');
+                        if (icon3) {
+                            const countEl = statsCards[2].querySelector('.text-2xl.font-bold');
+                            if (countEl) countEl.textContent = outOfRangePools.length;
+                        }
+                    }
+                    
+                    // Card 4: Fees Gerados (ícone fa-dollar-sign)
+                    if (statsCards[3]) {
+                        const icon4 = statsCards[3].querySelector('.fa-dollar-sign');
+                        if (icon4) {
+                            const countEl = statsCards[3].querySelector('.text-2xl.font-bold');
+                            if (countEl) countEl.textContent = `$${totalFees.toFixed(2)}`;
+                            const badge4 = statsCards[3].querySelector('.text-xs.bg-purple-500\\/20');
+                            if (badge4) {
+                                badge4.textContent = 'Total';
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Atualizar tabela de pools recentes
+            updateRecentPoolsTable(activePools);
+            
+            // Atualizar card de alertas (por enquanto sem dados reais, apenas remover texto fictício)
+            const alertsCountEl = document.getElementById('alertsCount');
+            if (alertsCountEl) {
+                alertsCountEl.textContent = 'Nenhum alerta pendente';
+            }
+        }
+
+        // Atualizar tabela de pools recentes
+        function updateRecentPoolsTable(pools) {
+            const dashboardTab = document.getElementById('dashboard-tab');
+            if (!dashboardTab) return;
+            
+            const tableBody = dashboardTab.querySelector('table tbody');
+            if (!tableBody) return;
+
+            if (pools.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="py-8 px-4 text-center text-gray-400">
+                            <i class="fas fa-inbox text-3xl mb-2"></i>
+                            <p>Nenhuma pool monitorada ainda</p>
+                            <button onclick="showTab('add-pool')" class="mt-4 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-sm">
+                                Adicionar Pool
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // Ordenar pools por última verificação (mais recentes primeiro)
+            const sortedPools = [...pools].sort((a, b) => {
+                const dateA = a.last_checked_at ? new Date(a.last_checked_at) : new Date(0);
+                const dateB = b.last_checked_at ? new Date(b.last_checked_at) : new Date(0);
+                return dateB - dateA;
+            });
+
+            tableBody.innerHTML = sortedPools.map(pool => {
+                const status = pool.last_in_range === true 
+                    ? '<span class="px-3 py-1 rounded-full text-xs bg-green-500/20 text-green-400"><i class="fas fa-check-circle mr-1"></i>No Range</span>'
+                    : pool.last_in_range === false
+                    ? '<span class="px-3 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-400"><i class="fas fa-exclamation-triangle mr-1"></i>Fora do Range</span>'
+                    : '<span class="px-3 py-1 rounded-full text-xs bg-gray-500/20 text-gray-400"><i class="fas fa-question-circle mr-1"></i>Desconhecido</span>';
+                
+                const fees = parseFloat(pool.fees_uncollected_usd || 0);
+                const feeTier = pool.fee_tier ? `${(pool.fee_tier / 10000).toFixed(2)}%` : 'N/A';
+                const protocol = pool.protocol || 'Uniswap V3';
+                
+                return `
+                    <tr class="border-b border-white/5 hover:bg-white/5">
+                        <td class="py-4 px-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="flex -space-x-2">
+                                    <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center border-2 border-gray-800 text-xs font-bold">${(pool.token0_symbol || 'T0').substring(0, 4)}</div>
+                                    <div class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center border-2 border-gray-800 text-xs font-bold">${(pool.token1_symbol || 'T1').substring(0, 4)}</div>
+                                </div>
+                                <div>
+                                    <p class="font-semibold">${pool.token0_symbol || 'T0'}/${pool.token1_symbol || 'T1'}</p>
+                                    <p class="text-xs text-gray-400">${feeTier} • ${protocol}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-4 px-4">${status}</td>
+                        <td class="py-4 px-4">${pool.tvl ? '$' + parseFloat(pool.tvl).toFixed(2) : 'N/A'}</td>
+                        <td class="py-4 px-4 text-gray-400">N/A</td>
+                        <td class="py-4 px-4">$${fees.toFixed(2)}</td>
+                        <td class="py-4 px-4">
+                            <button onclick="viewPoolDetails('${pool.id}')" class="text-indigo-400 hover:text-indigo-300 mr-3" title="Ver detalhes">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="configurePool('${pool.id}')" class="text-gray-400 hover:text-gray-300" title="Configurar">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Atualizar tab de monitoramento
+        function updateMonitoringTab(pools) {
+            // Tentar encontrar o container de várias formas
+            let monitoringContainer = document.querySelector('#monitoring-tab .grid.grid-cols-1.lg\\:grid-cols-2');
+            
+            if (!monitoringContainer) {
+                // Tentar sem escape
+                monitoringContainer = document.querySelector('#monitoring-tab .grid');
+            }
+            
+            if (!monitoringContainer) {
+                // Tentar encontrar pelo ID da tab
+                const tab = document.getElementById('monitoring-tab');
+                if (tab) {
+                    monitoringContainer = tab.querySelector('.grid');
+                }
+            }
+            
+            if (!monitoringContainer) {
+                console.error('Container de monitoramento não encontrado');
+                return;
+            }
+
+            // Limpar pools existentes (exceto os cards de exemplo se houver)
+            // Vamos substituir todo o conteúdo
+            monitoringContainer.innerHTML = '';
+
+            if (!pools || pools.length === 0) {
+                monitoringContainer.innerHTML = `
+                    <div class="col-span-2 card rounded-xl p-12 text-center">
+                        <i class="fas fa-inbox text-6xl text-gray-600 mb-4"></i>
+                        <h3 class="text-xl font-semibold mb-2">Nenhuma pool monitorada</h3>
+                        <p class="text-gray-400 mb-6">Adicione uma pool para começar o monitoramento</p>
+                        <button onclick="showTab('add-pool')" class="btn-primary px-6 py-3 rounded-lg">
+                            <i class="fas fa-plus-circle mr-2"></i>Adicionar Pool
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Renderizar cada pool
+            pools.forEach(pool => {
+                // Determinar status: se last_in_range é null, verificar se temos preço atual
+                let isInRange = pool.last_in_range === true;
+                let isOutOfRange = pool.last_in_range === false;
+                
+                // Se status é desconhecido mas temos preço atual, calcular baseado no preço
+                if (pool.last_in_range === null && currentPrice !== null && priceLower > 0 && priceUpper > 0) {
+                    isInRange = currentPrice >= priceLower && currentPrice <= priceUpper;
+                    isOutOfRange = !isInRange;
+                    console.log(`📊 Calculando status: preço ${currentPrice} está entre ${priceLower} e ${priceUpper}? ${isInRange}`);
+                }
+                
+                const statusClass = isInRange ? 'border-green-500' : (isOutOfRange ? 'border-yellow-500' : 'border-gray-500');
+                const statusBadge = isInRange 
+                    ? '<span class="px-3 py-1 rounded-full text-xs bg-green-500/20 text-green-400 status-badge"><i class="fas fa-check-circle mr-1"></i>No Range</span>'
+                    : (isOutOfRange 
+                        ? '<span class="px-3 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-400 status-badge"><i class="fas fa-exclamation-triangle mr-1"></i>Fora do Range</span>'
+                        : '<span class="px-3 py-1 rounded-full text-xs bg-gray-500/20 text-gray-400 status-badge"><i class="fas fa-question-circle mr-1"></i>Desconhecido</span>');
+                
+                const token0Symbol = pool.token0_symbol || 'UNKNOWN';
+                const token1Symbol = pool.token1_symbol || 'UNKNOWN';
+                const feeTier = pool.fee_tier ? `${(pool.fee_tier / 10000).toFixed(2)}%` : 'N/A';
+                const chain = pool.chain || 'base';
+                const protocol = pool.protocol || 'uniswap-v3';
+                
+                // Calcular posição do preço no range (se disponível)
+                const priceLower = parseFloat(pool.price_lower) || 0;
+                const priceUpper = parseFloat(pool.price_upper) || 0;
+                const currentPrice = pool.current_price ? parseFloat(pool.current_price) : null;
+                const feesUncollected = pool.fees_uncollected_usd !== null && pool.fees_uncollected_usd !== undefined 
+                    ? parseFloat(pool.fees_uncollected_usd) 
+                    : 0;
+                console.log(`💰 Fees para pool ${pool.pool_id}:`, {
+                    fees_uncollected_usd: pool.fees_uncollected_usd,
+                    parsed: feesUncollected
+                });
+                
+                let pricePosition = 50; // Default: meio do range
+                if (currentPrice && priceLower > 0 && priceUpper > priceLower) {
+                    pricePosition = ((currentPrice - priceLower) / (priceUpper - priceLower)) * 100;
+                    pricePosition = Math.max(0, Math.min(100, pricePosition));
+                }
+
+                const poolCard = document.createElement('div');
+                poolCard.className = `card rounded-xl p-6 border-l-4 ${statusClass}`;
+                poolCard.innerHTML = `
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex -space-x-2">
+                                <div class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center border-2 border-gray-800 font-bold text-xs">${token0Symbol.substring(0, 4)}</div>
+                                <div class="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center border-2 border-gray-800 font-bold text-xs">${token1Symbol.substring(0, 4)}</div>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold">${token0Symbol}/${token1Symbol}</h3>
+                                <p class="text-sm text-gray-400">${protocol} • ${feeTier} • ${chain.toUpperCase()}</p>
+                            </div>
+                        </div>
+                        ${statusBadge}
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <p class="text-xs text-gray-400 mb-1">Preço Atual</p>
+                            <p class="text-lg font-semibold">${currentPrice ? '$' + currentPrice.toFixed(2) : 'N/A'}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400 mb-1">Range</p>
+                            <p class="text-lg font-semibold ${isInRange ? 'text-green-400' : (isOutOfRange ? 'text-yellow-400' : 'text-gray-400')}">
+                                ${priceLower > 0 && priceUpper > 0 && priceLower < 1e10 && priceUpper < 1e10 
+                                    ? `$${priceLower.toFixed(2)} - $${priceUpper.toFixed(2)}` 
+                                    : (priceLower > 0 && priceUpper > 0 
+                                        ? `$${(priceLower / 1e12).toFixed(2)} - $${(priceUpper / 1e12).toFixed(2)}` 
+                                        : 'Aguardando dados...')}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400 mb-1">Fees Acumulados</p>
+                            <p class="text-lg font-semibold text-green-400">$${feesUncollected.toFixed(2)}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400 mb-1">Última Verificação</p>
+                            <p class="text-lg font-semibold text-gray-400">${pool.last_checked_at ? new Date(pool.last_checked_at).toLocaleString('pt-BR') : 'Nunca'}</p>
+                        </div>
+                    </div>
+
+                    ${currentPrice && priceLower > 0 && priceUpper > priceLower ? `
+                    <!-- Price Range Visualization -->
+                    <div class="mb-4">
+                        <div class="flex justify-between text-xs text-gray-400 mb-2">
+                            <span>$${priceLower.toFixed(2)}</span>
+                            <span class="${isInRange ? 'text-white' : 'text-yellow-400'} font-semibold">Atual: $${currentPrice.toFixed(2)}</span>
+                            <span>$${priceUpper.toFixed(2)}</span>
+                        </div>
+                        <div class="relative h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="absolute inset-0 bg-gradient-to-r from-red-500 via-green-500 to-red-500"></div>
+                            <div class="absolute top-0 h-full w-1 ${isInRange ? 'bg-white' : 'bg-yellow-400'}" style="left: ${pricePosition}%"></div>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    ${feesUncollected > 0 ? `
+                    <div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3 mb-4">
+                        <div class="flex items-start space-x-2">
+                            <i class="fas fa-coins text-green-400 mt-1"></i>
+                            <div>
+                                <p class="text-sm font-semibold text-green-400">Fees Disponíveis</p>
+                                <p class="text-xs text-gray-300 mt-1">Você tem $${feesUncollected.toFixed(2)} em fees acumulados aguardando coleta.</p>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    ${isOutOfRange ? `
+                    <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
+                        <div class="flex items-start space-x-2">
+                            <i class="fas fa-exclamation-triangle text-yellow-400 mt-1"></i>
+                            <div>
+                                <p class="text-sm font-semibold text-yellow-400">Ação Recomendada</p>
+                                <p class="text-xs text-gray-300 mt-1">Sua pool está fora do range. Você não está gerando fees. Considere rebalancear.</p>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <div class="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                        <button onclick="viewPoolDetails('${pool.id}')" class="text-sm text-indigo-400 hover:text-indigo-300">
+                            <i class="fas fa-chart-line mr-2"></i>Ver Detalhes
+                        </button>
+                        <button onclick="configurePool('${pool.id}')" class="text-sm text-gray-400 hover:text-gray-300">
+                            <i class="fas fa-cog mr-2"></i>Configurar
+                        </button>
+                    </div>
+                `;
+                
+                monitoringContainer.appendChild(poolCard);
+            });
+        }
+
+        // Variável global para armazenar pools
+        window.currentPools = [];
+
+        async function viewPoolDetails(poolId) {
+            try {
+                console.log('🔍 Buscando pool:', poolId, 'em:', window.currentPools);
+                const pool = window.currentPools.find(p => p.id === poolId);
+                if (!pool) {
+                    console.error('Pool não encontrada:', poolId);
+                    alert('Pool não encontrada. Recarregue a página.');
+                    return;
+                }
+
+                // Buscar métricas históricas
+                const response = await apiRequest(`/pools/${poolId}/metrics`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Erro ao buscar métricas');
+                }
+
+                const metrics = data.metrics || [];
+                
+                // Preparar dados para o gráfico
+                const labels = metrics.map(m => {
+                    const date = new Date(m.recorded_at);
+                    return `${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+                });
+                
+                // Fees acumulados - usar fees_earned_24h diretamente (já é o total acumulado, não incremento)
+                // Adicionar o valor atual da pool como último ponto
+                let feesData = [];
+                if (metrics.length > 0) {
+                    // Usar fees_earned_24h diretamente (já é o total acumulado naquele momento)
+                    feesData = metrics.map(m => {
+                        const fee = parseFloat(m.fees_earned_24h || 0);
+                        return fee;
+                    });
+                    
+                    // Adicionar o valor atual da pool como último ponto (se diferente do último valor)
+                    const currentFees = parseFloat(pool.fees_uncollected_usd || 0);
+                    const lastMetricFee = feesData.length > 0 ? feesData[feesData.length - 1] : 0;
+                    
+                    // Só adicionar se o valor atual for diferente do último valor das métricas
+                    if (Math.abs(currentFees - lastMetricFee) > 0.001) {
+                        feesData.push(currentFees);
+                        // Adicionar label para o ponto atual
+                        labels.push('Agora');
+                    }
+                } else {
+                    // Se não houver métricas, usar apenas o valor atual
+                    feesData = [parseFloat(pool.fees_uncollected_usd || 0)];
+                }
+                
+                // TVL e Preço - garantir que tenham o mesmo número de pontos que feesData
+                let tvlData = [];
+                let priceData = [];
+                
+                if (metrics.length > 0) {
+                    tvlData = metrics.map(m => parseFloat(m.tvl || 0));
+                    priceData = metrics.map(m => parseFloat(m.current_price || 0));
+                    
+                    // Se adicionamos um ponto extra para fees, adicionar também para TVL e Preço
+                    if (feesData.length > metrics.length) {
+                        tvlData.push(parseFloat(pool.tvl || 0));
+                        priceData.push(parseFloat(pool.current_price || 0));
+                    }
+                } else {
+                    tvlData = [parseFloat(pool.tvl || 0)];
+                    priceData = [parseFloat(pool.current_price || 0)];
+                }
+                
+                // Calcular valores min e max para os eixos
+                const minPrice = priceData.length > 0 ? Math.min(...priceData.filter(p => p > 0)) : 0;
+                const maxPrice = priceData.length > 0 ? Math.max(...priceData) : 0;
+                const minFees = feesData.length > 0 ? Math.min(...feesData) : 0;
+                const maxFees = feesData.length > 0 ? Math.max(...feesData) : 0;
+                const minTVL = tvlData.length > 0 ? Math.min(...tvlData.filter(t => t > 0)) : 0;
+                const maxTVL = tvlData.length > 0 ? Math.max(...tvlData) : 0;
+                
+                console.log('📊 Dados do gráfico:', {
+                    labels: labels.length,
+                    feesData: feesData,
+                    tvlData: tvlData,
+                    priceData: priceData,
+                    minPrice: minPrice,
+                    maxPrice: maxPrice,
+                    minFees: minFees,
+                    maxFees: maxFees
+                });
+
+                // Criar conteúdo do modal
+                const modalContent = document.getElementById('detailsModalContent');
+                modalContent.innerHTML = `
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-4">${pool.token0_symbol}/${pool.token1_symbol}</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div class="card p-4">
+                                <p class="text-xs text-gray-400 mb-1">Preço Atual</p>
+                                <p class="text-lg font-bold">$${pool.current_price ? parseFloat(pool.current_price).toFixed(2) : 'N/A'}</p>
+                            </div>
+                            <div class="card p-4">
+                                <p class="text-xs text-gray-400 mb-1">Fees Acumulados</p>
+                                <p class="text-lg font-bold text-green-400">$${pool.fees_uncollected_usd ? parseFloat(pool.fees_uncollected_usd).toFixed(2) : '0.00'}</p>
+                            </div>
+                            <div class="card p-4">
+                                <p class="text-xs text-gray-400 mb-1">Status</p>
+                                <p class="text-lg font-bold ${pool.last_in_range ? 'text-green-400' : 'text-yellow-400'}">
+                                    ${pool.last_in_range ? 'No Range' : 'Fora do Range'}
+                                </p>
+                            </div>
+                            <div class="card p-4">
+                                <p class="text-xs text-gray-400 mb-1">Última Verificação</p>
+                                <p class="text-sm font-semibold">${pool.last_checked_at ? new Date(pool.last_checked_at).toLocaleString('pt-BR') : 'Nunca'}</p>
+                            </div>
+                        </div>
+                        <div class="card p-4 mb-4">
+                            <h4 class="text-lg font-semibold mb-4">Gráfico de Rendimento</h4>
+                            <canvas id="performanceChart" height="100"></canvas>
+                        </div>
+                    </div>
+                `;
+
+                // Mostrar modal
+                document.getElementById('detailsModal').classList.remove('hidden');
+
+                // Criar gráfico
+                setTimeout(() => {
+                    const ctx = document.getElementById('performanceChart');
+                    if (ctx && metrics.length > 0) {
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    {
+                                        label: 'Fees Acumulados (USD)',
+                                        data: feesData,
+                                        borderColor: 'rgb(34, 197, 94)',
+                                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                        tension: 0.4,
+                                        yAxisID: 'y'
+                                    },
+                                    {
+                                        label: 'TVL (USD)',
+                                        data: tvlData,
+                                        borderColor: 'rgb(99, 102, 241)',
+                                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                        tension: 0.4,
+                                        yAxisID: 'y1',
+                                        fill: true,
+                                        pointRadius: 2,
+                                        pointHoverRadius: 4
+                                    },
+                                    {
+                                        label: 'Preço Atual (USD)',
+                                        data: priceData,
+                                        borderColor: 'rgb(251, 191, 36)',
+                                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                                        tension: 0.4,
+                                        yAxisID: 'y2',
+                                        pointRadius: 3,
+                                        pointHoverRadius: 5,
+                                        borderWidth: 2
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: true,
+                                interaction: {
+                                    mode: 'index',
+                                    intersect: false,
+                                },
+                                plugins: {
+                                    legend: {
+                                        display: true,
+                                        position: 'top',
+                                        labels: {
+                                            color: 'rgba(255, 255, 255, 0.8)'
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        ticks: {
+                                            color: 'rgba(255, 255, 255, 0.6)'
+                                        },
+                                        grid: {
+                                            color: 'rgba(255, 255, 255, 0.1)'
+                                        }
+                                    },
+                                    y: {
+                                        type: 'linear',
+                                        display: true,
+                                        position: 'left',
+                                        title: {
+                                            display: true,
+                                            text: 'Fees Acumulados (USD)',
+                                            color: 'rgba(34, 197, 94, 0.8)'
+                                        },
+                                        ticks: {
+                                            color: 'rgba(34, 197, 94, 0.8)',
+                                            callback: function(value) {
+                                                return '$' + value.toFixed(2);
+                                            }
+                                        },
+                                        grid: {
+                                            color: 'rgba(255, 255, 255, 0.1)'
+                                        },
+                                        beginAtZero: true,
+                                        max: maxFees > 0 ? maxFees * 1.1 : undefined
+                                    },
+                                    y1: {
+                                        type: 'linear',
+                                        display: true,
+                                        position: 'right',
+                                        title: {
+                                            display: true,
+                                            text: 'TVL (USD)',
+                                            color: 'rgba(99, 102, 241, 0.8)'
+                                        },
+                                        ticks: {
+                                            color: 'rgba(99, 102, 241, 0.8)',
+                                            callback: function(value) {
+                                                return '$' + value.toFixed(2);
+                                            }
+                                        },
+                                        grid: {
+                                            drawOnChartArea: false
+                                        },
+                                        beginAtZero: true,
+                                        max: maxTVL > 0 ? maxTVL * 1.1 : undefined
+                                    },
+                                    y2: {
+                                        type: 'linear',
+                                        display: true,
+                                        position: 'right',
+                                        title: {
+                                            display: true,
+                                            text: 'Preço (USD)',
+                                            color: 'rgba(251, 191, 36, 0.8)'
+                                        },
+                                        ticks: {
+                                            color: 'rgba(251, 191, 36, 0.8)',
+                                            callback: function(value) {
+                                                return '$' + value.toFixed(2);
+                                            }
+                                        },
+                                        grid: {
+                                            drawOnChartArea: false,
+                                            color: 'rgba(251, 191, 36, 0.1)'
+                                        },
+                                        beginAtZero: false,
+                                        min: minPrice > 0 ? minPrice * 0.95 : undefined,
+                                        max: maxPrice > 0 ? maxPrice * 1.05 : undefined
+                                    }
+                                }
+                            }
+                        });
+                    } else if (metrics.length === 0) {
+                        modalContent.innerHTML += `
+                            <div class="card p-8 text-center">
+                                <i class="fas fa-chart-line text-4xl text-gray-400 mb-4"></i>
+                                <p class="text-gray-400">Ainda não há dados históricos para esta pool.</p>
+                                <p class="text-sm text-gray-500 mt-2">Os dados serão coletados nas próximas verificações.</p>
+                            </div>
+                        `;
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Erro ao buscar detalhes:', error);
+                alert('Erro ao carregar detalhes da pool: ' + error.message);
+            }
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('detailsModal').classList.add('hidden');
+        }
+
+        async function configurePool(poolId) {
+            try {
+                console.log('🔍 Buscando pool para configurar:', poolId, 'em:', window.currentPools);
+                const pool = window.currentPools.find(p => p.id === poolId);
+                if (!pool) {
+                    console.error('Pool não encontrada:', poolId);
+                    alert('Pool não encontrada. Recarregue a página.');
+                    return;
+                }
+
+                // Criar conteúdo do modal
+                const modalContent = document.getElementById('configureModalContent');
+                modalContent.innerHTML = `
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Informações da Pool</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="card p-4">
+                                    <p class="text-xs text-gray-400 mb-1">Par de Tokens</p>
+                                    <p class="text-lg font-bold">${pool.token0_symbol}/${pool.token1_symbol}</p>
+                                </div>
+                                <div class="card p-4">
+                                    <p class="text-xs text-gray-400 mb-1">Fee Tier</p>
+                                    <p class="text-lg font-bold">${(pool.fee_tier / 10000).toFixed(2)}%</p>
+                                </div>
+                                <div class="card p-4">
+                                    <p class="text-xs text-gray-400 mb-1">Chain</p>
+                                    <p class="text-lg font-bold">${pool.chain.toUpperCase()}</p>
+                                </div>
+                                <div class="card p-4">
+                                    <p class="text-xs text-gray-400 mb-1">Protocol</p>
+                                    <p class="text-lg font-bold">${pool.protocol}</p>
+                                </div>
+                                <div class="card p-4">
+                                    <p class="text-xs text-gray-400 mb-1">Pool ID</p>
+                                    <p class="text-sm font-semibold break-all">${pool.pool_id}</p>
+                                </div>
+                                <div class="card p-4">
+                                    <p class="text-xs text-gray-400 mb-1">Pool Address</p>
+                                    <p class="text-sm font-semibold break-all">${pool.pool_address || 'pending'}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Range de Preço</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="card p-4">
+                                    <p class="text-xs text-gray-400 mb-1">Preço Inferior</p>
+                                    <p class="text-lg font-bold">$${parseFloat(pool.price_lower).toFixed(2)}</p>
+                                </div>
+                                <div class="card p-4">
+                                    <p class="text-xs text-gray-400 mb-1">Preço Superior</p>
+                                    <p class="text-lg font-bold">$${parseFloat(pool.price_upper).toFixed(2)}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Alertas</h3>
+                            <div class="card p-4 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm">Notificar quando sair do range</span>
+                                    <span class="text-sm font-semibold ${pool.alert_out_of_range ? 'text-green-400' : 'text-gray-400'}">
+                                        ${pool.alert_out_of_range ? 'Ativo' : 'Inativo'}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm">Meta de fees acumulados</span>
+                                    <span class="text-sm font-semibold">$${parseFloat(pool.alert_fees_threshold || 0).toFixed(2)}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm">Limite de perda impermanente</span>
+                                    <span class="text-sm font-semibold">${parseFloat(pool.alert_il_threshold || 0).toFixed(2)}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 border-t border-white/10">
+                            <button onclick="deletePool('${pool.id}')" class="w-full btn-primary bg-red-500 hover:bg-red-600 text-white py-3 rounded-lg">
+                                <i class="fas fa-trash mr-2"></i>Remover Pool
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                // Mostrar modal
+                document.getElementById('configureModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Erro ao carregar configurações:', error);
+                alert('Erro ao carregar configurações da pool: ' + error.message);
+            }
+        }
+
+        function closeConfigureModal() {
+            document.getElementById('configureModal').classList.add('hidden');
+        }
+
+        async function deletePool(poolId) {
+            if (!confirm('Tem certeza que deseja remover esta pool do monitoramento?')) {
+                return;
+            }
+
+            try {
+                const response = await apiRequest(`/pools/${poolId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Pool removida com sucesso!');
+                    closeConfigureModal();
+                    loadPools(); // Recarregar lista
+                } else {
+                    throw new Error(data.error || 'Erro ao remover pool');
+                }
+            } catch (error) {
+                console.error('Erro ao remover pool:', error);
+                alert('Erro ao remover pool: ' + error.message);
+            }
+        }
+
+        function toggleUserMenu() {
+            const menu = document.getElementById('userMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Fechar menu ao clicar fora
+        window.addEventListener('click', (event) => {
+            const menuContainer = document.getElementById('userMenuContainer');
+            const menu = document.getElementById('userMenu');
+            
+            if (!menuContainer.contains(event.target) && !menu.classList.contains('hidden')) {
+                menu.classList.add('hidden');
+            }
+        });
+
+        function handleLogout() {
+            if (confirm('Tem certeza que deseja sair?')) {
+                localStorage.removeItem('liquidityguard_authenticated');
+                localStorage.removeItem('liquidityguard_user');
+                localStorage.removeItem('liquidityguard_token');
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Função para selecionar chain
+        let selectedChain = 'base'; // Padrão: Base
+        function selectChain(chain, element) {
+            selectedChain = chain;
+            // Remover seleção de todos os botões
+            document.querySelectorAll('.chain-btn').forEach(btn => {
+                btn.classList.remove('border-2', 'border-indigo-500', 'bg-indigo-500/20');
+                btn.classList.add('border', 'border-white/10');
+            });
+            // Adicionar seleção ao botão clicado
+            element.classList.remove('border', 'border-white/10');
+            element.classList.add('border-2', 'border-indigo-500', 'bg-indigo-500/20');
+            // Atualizar input hidden
+            const hiddenInput = document.getElementById('selected-chain');
+            if (hiddenInput) {
+                hiddenInput.value = chain;
+            }
+        }
+
+        // Load Analytics Data
+        async function loadAnalyticsData() {
+            try {
+                const response = await apiRequest('/pools');
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Erro ao buscar pools');
+                }
+
+                const pools = data.pools || [];
+                
+                // Calcular total de fees acumulados
+                let totalFees = 0;
+                pools.forEach(pool => {
+                    const fees = parseFloat(pool.fees_uncollected_usd || 0);
+                    if (!isNaN(fees) && fees > 0) {
+                        totalFees += fees;
+                    }
+                });
+
+                // Atualizar cards
+                document.getElementById('totalFeesAccumulated').textContent = `$${totalFees.toFixed(2)}`;
+                document.getElementById('totalPoolsCount').textContent = pools.length;
+
+                // Atualizar tabela
+                const tableBody = document.getElementById('analyticsPoolsTable');
+                if (pools.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="py-8 px-4 text-center text-gray-400">
+                                <i class="fas fa-inbox text-3xl mb-2"></i>
+                                <p>Nenhuma pool monitorada ainda</p>
+                                <button onclick="showTab('add-pool')" class="mt-4 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-sm">
+                                    Adicionar Pool
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    tableBody.innerHTML = pools.map(pool => {
+                        const fees = parseFloat(pool.fees_uncollected_usd || 0);
+                        const currentPrice = parseFloat(pool.current_price || 0);
+                        const status = pool.last_in_range ? 'No Range' : 'Fora do Range';
+                        const statusColor = pool.last_in_range ? 'text-green-400' : 'text-yellow-400';
+                        const lastChecked = pool.last_checked_at 
+                            ? new Date(pool.last_checked_at).toLocaleString('pt-BR')
+                            : 'Nunca';
+
+                        return `
+                            <tr class="border-b border-white/5 hover:bg-white/5">
+                                <td class="py-4 px-4">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-semibold">${pool.token0_symbol}/${pool.token1_symbol}</span>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-4 text-green-400">$${fees.toFixed(2)}</td>
+                                <td class="py-4 px-4">${currentPrice > 0 ? '$' + currentPrice.toFixed(2) : 'N/A'}</td>
+                                <td class="py-4 px-4 ${statusColor}">${status}</td>
+                                <td class="py-4 px-4 text-sm text-gray-400">${lastChecked}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar dados de análises:', error);
+                document.getElementById('analyticsPoolsTable').innerHTML = `
+                    <tr>
+                        <td colspan="5" class="py-8 px-4 text-center text-red-400">
+                            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                            <p>Erro ao carregar dados: ${error.message}</p>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Tab Navigation
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Remove active class from all nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.remove('hidden');
+            
+            // Add active class to clicked nav item
+            if (event && event.target) {
+                event.target.closest('.nav-item').classList.add('active');
+            }
+
+            // Fechar menu de usuário se aberto
+            document.getElementById('userMenu').classList.add('hidden');
+
+            // Carregar dados se for a aba de análises
+            if (tabName === 'analytics') {
+                loadAnalyticsData();
+            }
+        }
+
+        // Form submission - Adicionar pool real
+        document.getElementById('addPoolForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const form = e.target;
+            const button = form.querySelector('button[type="submit"]');
+            const originalText = button.innerHTML;
+            
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adicionando...';
+            button.disabled = true;
+
+            try {
+                const positionId = form.querySelector('input[type="text"]').value.trim();
+                const protocol = form.querySelector('select').value;
+                const chain = selectedChain || document.getElementById('selected-chain')?.value || 'base';
+                const alertOutOfRange = form.querySelector('input[type="checkbox"]').checked;
+
+                if (!positionId) {
+                    throw new Error('Por favor, informe o Pool ID (ex: 4313325)');
+                }
+
+                // Validar se é um número (Position ID) ou endereço
+                if (!/^\d+$/.test(positionId) && !/^0x[a-fA-F0-9]{40}$/.test(positionId)) {
+                    throw new Error('Por favor, informe um Position ID válido (ex: 4313325) ou um endereço de pool');
+                }
+
+                const response = await apiRequest('/pools', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        position_id: positionId,
+                        chain: chain,
+                        protocol: protocol.toLowerCase(),
+                        alert_out_of_range: alertOutOfRange
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Erro ao adicionar pool');
+                }
+
+                if (data.success) {
+                    alert('Pool adicionada com sucesso!');
+                    form.reset();
+                    loadPools(); // Recarregar lista de pools
+                    showTab('dashboard');
+                }
+            } catch (error) {
+                alert('Erro ao adicionar pool: ' + error.message);
+            } finally {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        });
+
+        // Simulate real-time updates
+        setInterval(() => {
+            // Update status badge animation
+            document.querySelectorAll('.status-badge').forEach(badge => {
+                badge.style.animation = 'none';
+                setTimeout(() => badge.style.animation = '', 10);
+            });
+        }, 2000);
+    </script>
+</body>
+</html>

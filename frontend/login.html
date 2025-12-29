@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiquidityGuard - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #6366f1;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .floating-animation {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .tab-btn {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px 3px 0 0;
+        }
+
+        .pulse-animation {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .7; }
+        }
+    </style>
+</head>
+<body class="text-white flex items-center justify-center p-4">
+    <div class="w-full max-w-6xl">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <!-- Left Side - Branding & Features -->
+            <div class="hidden lg:block">
+                <div class="floating-animation">
+                    <div class="flex items-center space-x-3 mb-6">
+                        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-xl">
+                            <i class="fas fa-water text-4xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-4xl font-bold">LiquidityGuard</h1>
+                            <p class="text-gray-400">Pool Range Monitor</p>
+                        </div>
+                    </div>
+
+                    <p class="text-xl text-gray-300 mb-8">
+                        Monitore suas Liquidity Pools em tempo real e nunca mais perca fees por estar fora do range.
+                    </p>
+
+                    <div class="space-y-4">
+                        <div class="flex items-start space-x-3">
+                            <div class="bg-indigo-500/20 p-3 rounded-lg">
+                                <i class="fas fa-bell text-indigo-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold mb-1">Alertas em Tempo Real</h3>
+                                <p class="text-sm text-gray-400">Receba notificações instantâneas no Telegram quando suas pools saírem do range</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start space-x-3">
+                            <div class="bg-purple-500/20 p-3 rounded-lg">
+                                <i class="fas fa-chart-line text-purple-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold mb-1">Análise Detalhada</h3>
+                                <p class="text-sm text-gray-400">Acompanhe fees, APR, IL e performance de cada pool em dashboards intuitivos</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start space-x-3">
+                            <div class="bg-green-500/20 p-3 rounded-lg">
+                                <i class="fas fa-layer-group text-green-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold mb-1">Multi-Protocol</h3>
+                                <p class="text-sm text-gray-400">Suporte para Uniswap V3, PancakeSwap, SushiSwap e mais protocolos</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start space-x-3">
+                            <div class="bg-yellow-500/20 p-3 rounded-lg">
+                                <i class="fas fa-shield-alt text-yellow-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold mb-1">100% Seguro</h3>
+                                <p class="text-sm text-gray-400">Apenas leitura - nunca pedimos acesso às suas chaves privadas</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 card rounded-xl p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-2xl font-bold">500+</p>
+                                <p class="text-sm text-gray-400">Usuários ativos</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold">$2.5M+</p>
+                                <p class="text-sm text-gray-400">TVL monitorado</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold">1,200+</p>
+                                <p class="text-sm text-gray-400">Pools rastreadas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side - Login/Register Form -->
+            <div class="card rounded-2xl p-8 lg:p-10">
+                <!-- Mobile Logo -->
+                <div class="lg:hidden flex items-center justify-center mb-6">
+                    <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-xl">
+                        <i class="fas fa-water text-3xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h1 class="text-2xl font-bold">LiquidityGuard</h1>
+                        <p class="text-xs text-gray-400">Pool Range Monitor</p>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex space-x-1 mb-8 bg-black/20 rounded-lg p-1">
+                    <button 
+                        class="tab-btn active flex-1 py-3 rounded-lg font-semibold text-sm"
+                        onclick="switchTab('login')"
+                        id="login-tab-btn"
+                    >
+                        Login
+                    </button>
+                    <button 
+                        class="tab-btn flex-1 py-3 rounded-lg font-semibold text-sm"
+                        onclick="switchTab('register')"
+                        id="register-tab-btn"
+                    >
+                        Criar Conta
+                    </button>
+                </div>
+
+                <!-- Login Form -->
+                <div id="login-form" class="form-content">
+                    <h2 class="text-2xl font-bold mb-2">Bem-vindo de volta!</h2>
+                    <p class="text-gray-400 mb-6">Entre para continuar monitorando suas pools</p>
+
+                    <form onsubmit="handleLogin(event)">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">
+                                <i class="fas fa-envelope mr-2 text-indigo-400"></i>Email
+                            </label>
+                            <input 
+                                type="email" 
+                                placeholder="seu@email.com"
+                                required
+                                class="w-full px-4 py-3 rounded-lg text-white"
+                            >
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium mb-2">
+                                <i class="fas fa-lock mr-2 text-indigo-400"></i>Senha
+                            </label>
+                            <div class="relative">
+                                <input 
+                                    type="password" 
+                                    placeholder="••••••••"
+                                    required
+                                    id="login-password"
+                                    class="w-full px-4 py-3 rounded-lg text-white pr-12"
+                                >
+                                <button 
+                                    type="button" 
+                                    onclick="togglePassword('login-password')"
+                                    class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                                >
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between mb-6">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" class="w-4 h-4 rounded border-gray-600 text-indigo-600">
+                                <span class="text-sm text-gray-400">Lembrar de mim</span>
+                            </label>
+                            <a href="#" class="text-sm text-indigo-400 hover:text-indigo-300">Esqueceu a senha?</a>
+                        </div>
+
+                        <button type="submit" class="w-full btn-primary py-3 rounded-lg font-semibold mb-4">
+                            <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+                        </button>
+
+                        <div class="relative my-6">
+                            <div class="absolute inset-0 flex items-center">
+                                <div class="w-full border-t border-white/10"></div>
+                            </div>
+                            <div class="relative flex justify-center text-sm">
+                                <span class="px-4 bg-[#1a1a2e] text-gray-400">ou continue com</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" class="flex items-center justify-center space-x-2 py-3 rounded-lg border border-white/10 hover:bg-white/5 transition">
+                                <i class="fab fa-google text-xl"></i>
+                                <span class="text-sm">Google</span>
+                            </button>
+                            <button type="button" class="flex items-center justify-center space-x-2 py-3 rounded-lg border border-white/10 hover:bg-white/5 transition">
+                                <i class="fab fa-github text-xl"></i>
+                                <span class="text-sm">GitHub</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Register Form -->
+                <div id="register-form" class="form-content hidden">
+                    <h2 class="text-2xl font-bold mb-2">Crie sua conta</h2>
+                    <p class="text-gray-400 mb-6">Comece a monitorar suas pools gratuitamente</p>
+
+                    <form onsubmit="handleRegister(event)">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">
+                                <i class="fas fa-user mr-2 text-indigo-400"></i>Nome completo
+                            </label>
+                            <input 
+                                type="text" 
+                                placeholder="João Silva"
+                                required
+                                class="w-full px-4 py-3 rounded-lg text-white"
+                            >
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">
+                                <i class="fas fa-envelope mr-2 text-indigo-400"></i>Email
+                            </label>
+                            <input 
+                                type="email" 
+                                placeholder="seu@email.com"
+                                required
+                                class="w-full px-4 py-3 rounded-lg text-white"
+                            >
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">
+                                <i class="fas fa-lock mr-2 text-indigo-400"></i>Senha
+                            </label>
+                            <div class="relative">
+                                <input 
+                                    type="password" 
+                                    placeholder="Mínimo 8 caracteres"
+                                    required
+                                    id="register-password"
+                                    minlength="8"
+                                    class="w-full px-4 py-3 rounded-lg text-white pr-12"
+                                >
+                                <button 
+                                    type="button" 
+                                    onclick="togglePassword('register-password')"
+                                    class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                                >
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">Use pelo menos 8 caracteres com letras e números</p>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium mb-2">
+                                <i class="fas fa-lock mr-2 text-indigo-400"></i>Confirmar senha
+                            </label>
+                            <div class="relative">
+                                <input 
+                                    type="password" 
+                                    placeholder="Digite a senha novamente"
+                                    required
+                                    id="register-password-confirm"
+                                    class="w-full px-4 py-3 rounded-lg text-white pr-12"
+                                >
+                                <button 
+                                    type="button" 
+                                    onclick="togglePassword('register-password-confirm')"
+                                    class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                                >
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <label class="flex items-start space-x-3 mb-6 cursor-pointer">
+                            <input type="checkbox" required class="w-4 h-4 rounded border-gray-600 text-indigo-600 mt-1">
+                            <span class="text-sm text-gray-400">
+                                Concordo com os <a href="#" class="text-indigo-400 hover:text-indigo-300">Termos de Uso</a> e 
+                                <a href="#" class="text-indigo-400 hover:text-indigo-300">Política de Privacidade</a>
+                            </span>
+                        </label>
+
+                        <button type="submit" class="w-full btn-primary py-3 rounded-lg font-semibold mb-4">
+                            <i class="fas fa-user-plus mr-2"></i>Criar Conta Grátis
+                        </button>
+
+                        <div class="relative my-6">
+                            <div class="absolute inset-0 flex items-center">
+                                <div class="w-full border-t border-white/10"></div>
+                            </div>
+                            <div class="relative flex justify-center text-sm">
+                                <span class="px-4 bg-[#1a1a2e] text-gray-400">ou registre-se com</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" class="flex items-center justify-center space-x-2 py-3 rounded-lg border border-white/10 hover:bg-white/5 transition">
+                                <i class="fab fa-google text-xl"></i>
+                                <span class="text-sm">Google</span>
+                            </button>
+                            <button type="button" class="flex items-center justify-center space-x-2 py-3 rounded-lg border border-white/10 hover:bg-white/5 transition">
+                                <i class="fab fa-github text-xl"></i>
+                                <span class="text-sm">GitHub</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Trust Indicators -->
+                <div class="mt-6 pt-6 border-t border-white/10">
+                    <div class="flex items-center justify-center space-x-6 text-sm text-gray-400">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-shield-alt text-green-400"></i>
+                            <span>Seguro</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-lock text-indigo-400"></i>
+                            <span>Criptografado</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-check-circle text-purple-400"></i>
+                            <span>Verificado</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-8 text-center text-sm text-gray-400">
+            <p>© 2024 LiquidityGuard. Todos os direitos reservados.</p>
+            <div class="mt-2 space-x-4">
+                <a href="#" class="hover:text-indigo-400 transition">Sobre</a>
+                <a href="#" class="hover:text-indigo-400 transition">Suporte</a>
+                <a href="#" class="hover:text-indigo-400 transition">Documentação</a>
+                <a href="#" class="hover:text-indigo-400 transition">Status</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Switch between login and register tabs
+        function switchTab(tab) {
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const loginBtn = document.getElementById('login-tab-btn');
+            const registerBtn = document.getElementById('register-tab-btn');
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                loginBtn.classList.add('active');
+                registerBtn.classList.remove('active');
+            } else {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                loginBtn.classList.remove('active');
+                registerBtn.classList.add('active');
+            }
+        }
+
+        // Toggle password visibility
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = input.nextElementSibling.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        // Configuração da API
+        // Carregar configuração da API
+        // Em produção, será injetado pelo Vercel via variável de ambiente
+        const API_BASE_URL = (window.API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://pollanalyser-backend.onrender.com')) + '/api';
+
+        // Handle login
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = event.target.querySelector('input[type="email"]').value;
+            const password = event.target.querySelector('input[type="password"]').value;
+            const button = event.target.querySelector('button[type="submit"]');
+            
+            showLoadingButton(button);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Erro ao fazer login');
+                }
+
+                if (data.success && data.token) {
+                    // Salvar token e dados do usuário
+                    localStorage.setItem('liquidityguard_token', data.token);
+                    localStorage.setItem('liquidityguard_user', JSON.stringify(data.user));
+                    localStorage.setItem('liquidityguard_authenticated', 'true');
+                    
+                    // Redirecionar para dashboard
+                    window.location.href = 'pool-monitor.html';
+                } else {
+                    throw new Error('Resposta inválida do servidor');
+                }
+            } catch (error) {
+                alert('Erro ao fazer login: ' + error.message);
+                button.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Entrar';
+                button.disabled = false;
+            }
+        }
+
+        // Handle register
+        async function handleRegister(event) {
+            event.preventDefault();
+            
+            const name = event.target.querySelector('input[type="text"]').value;
+            const email = event.target.querySelector('input[type="email"]').value;
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-password-confirm').value;
+            const button = event.target.querySelector('button[type="submit"]');
+            
+            if (password !== confirmPassword) {
+                alert('As senhas não coincidem!');
+                return;
+            }
+            
+            if (password.length < 8) {
+                alert('A senha deve ter no mínimo 8 caracteres!');
+                return;
+            }
+            
+            showLoadingButton(button);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Erro ao criar conta');
+                }
+
+                if (data.success && data.token) {
+                    // Salvar token e dados do usuário
+                    localStorage.setItem('liquidityguard_token', data.token);
+                    localStorage.setItem('liquidityguard_user', JSON.stringify(data.user));
+                    localStorage.setItem('liquidityguard_authenticated', 'true');
+                    
+                    // Redirecionar para dashboard
+                    window.location.href = 'pool-monitor.html';
+                } else {
+                    throw new Error('Resposta inválida do servidor');
+                }
+            } catch (error) {
+                console.error('Erro completo:', error);
+                let errorMessage = error.message;
+                
+                // Melhorar mensagens de erro
+                if (errorMessage.includes('Email já cadastrado')) {
+                    errorMessage = 'Este email já está cadastrado. Tente fazer login.';
+                } else if (errorMessage.includes('RLS') || errorMessage.includes('permission')) {
+                    errorMessage = 'Erro de permissão. Execute o arquivo FIX_RLS_POLICIES.sql no Supabase.';
+                } else if (errorMessage.includes('tabela') || errorMessage.includes('table')) {
+                    errorMessage = 'Erro no banco de dados. Verifique se as tabelas foram criadas.';
+                }
+                
+                alert('Erro ao criar conta: ' + errorMessage);
+                button.innerHTML = '<i class="fas fa-user-plus mr-2"></i>Criar Conta Grátis';
+                button.disabled = false;
+            }
+        }
+
+        // Show loading state on button
+        function showLoadingButton(button) {
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processando...';
+            button.disabled = true;
+        }
+
+        // Check if already authenticated
+        const token = localStorage.getItem('liquidityguard_token');
+        if (token && localStorage.getItem('liquidityguard_authenticated') === 'true') {
+            window.location.href = 'pool-monitor.html';
+        }
+    </script>
+</body>
+</html>
