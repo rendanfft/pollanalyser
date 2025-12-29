@@ -14,6 +14,30 @@ if (process.env.ETHEREUM_RPC_URL) {
   providers.ethereum = new ethers.providers.JsonRpcProvider(process.env.ETHEREUM_RPC_URL);
 }
 
+// Arbitrum
+if (process.env.ARBITRUM_RPC_URL) {
+  providers.arbitrum = new ethers.providers.JsonRpcProvider(process.env.ARBITRUM_RPC_URL);
+} else {
+  // Fallback para RPC público do Arbitrum
+  providers.arbitrum = new ethers.providers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
+}
+
+// Polygon
+if (process.env.POLYGON_RPC_URL) {
+  providers.polygon = new ethers.providers.JsonRpcProvider(process.env.POLYGON_RPC_URL);
+} else {
+  // Fallback para RPC público do Polygon
+  providers.polygon = new ethers.providers.JsonRpcProvider('https://polygon-rpc.com');
+}
+
+// BSC (Binance Smart Chain)
+if (process.env.BSC_RPC_URL) {
+  providers.bsc = new ethers.providers.JsonRpcProvider(process.env.BSC_RPC_URL);
+} else {
+  // Fallback para RPC público do BSC
+  providers.bsc = new ethers.providers.JsonRpcProvider('https://bsc-dataseed1.binance.org');
+}
+
 // Endereços dos contratos Uniswap V3 (com checksum correto)
 const UNISWAP_V3_CONTRACTS = {
   base: {
@@ -24,6 +48,22 @@ const UNISWAP_V3_CONTRACTS = {
   ethereum: {
     NONFUNGIBLE_POSITION_MANAGER: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88',
     FACTORY: '0x1F98431c8aD98523631AE4a59f267346ea31F984',
+    POOL_DEPLOYER: '0x4200000000000000000000000000000000000006'
+  },
+  arbitrum: {
+    NONFUNGIBLE_POSITION_MANAGER: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88',
+    FACTORY: '0x1F98431c8aD98523631AE4a59f267346ea31F984',
+    POOL_DEPLOYER: '0x4200000000000000000000000000000000000006'
+  },
+  polygon: {
+    NONFUNGIBLE_POSITION_MANAGER: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88',
+    FACTORY: '0x1F98431c8aD98523631AE4a59f267346ea31F984',
+    POOL_DEPLOYER: '0x4200000000000000000000000000000000000006'
+  },
+  bsc: {
+    // PancakeSwap V3 (BSC usa PancakeSwap, não Uniswap)
+    NONFUNGIBLE_POSITION_MANAGER: '0x46A15B0b27311cedF172AB29E4f4766fbE7F4364',
+    FACTORY: '0x0BFbCF9fa36f89C2965C3E4fB794E4bC26526c3F',
     POOL_DEPLOYER: '0x4200000000000000000000000000000000000006'
   }
 };
