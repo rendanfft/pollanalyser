@@ -3,7 +3,7 @@ services:
     name: pollanalyser-backend
     env: node
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -12,4 +12,5 @@ services:
       - key: FRONTEND_URL
         sync: false
     healthCheckPath: /health
+
 
