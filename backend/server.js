@@ -21,6 +21,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:8080',
+  'https://pollanalyser.vercel.app',
+  'https://pollanalyser-*.vercel.app', // Aceita qualquer subdomínio do Vercel
   process.env.FRONTEND_URL,
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
 ].filter(Boolean);
@@ -30,12 +32,17 @@ app.use(cors({
     // Permitir requisições sem origin (mobile apps, Postman, etc)
     if (!origin) return callback(null, true);
     
-    // Permitir se estiver na lista ou se for desenvolvimento
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+    // Verificar se é do Vercel (qualquer subdomínio .vercel.app)
+    const isVercel = origin.includes('.vercel.app');
+    
+    // Permitir se estiver na lista, for Vercel, ou se for desenvolvimento
+    if (allowedOrigins.includes(origin) || isVercel || process.env.NODE_ENV === 'development') {
+      console.log(`[CORS] Permitindo origem: ${origin}`);
       callback(null, true);
     } else {
       // Em produção, aceitar apenas origens conhecidas
       if (process.env.NODE_ENV === 'production') {
+        console.log(`[CORS] Bloqueando origem: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       } else {
         callback(null, true);
@@ -149,3 +156,4 @@ process.on('SIGINT', () => {
 });
 
 module.exports = app;
+
